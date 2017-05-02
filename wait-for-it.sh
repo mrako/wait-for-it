@@ -1,5 +1,7 @@
-#!/usr/bin/env bash
+#!/usr/bin/env sh
 #   Use this script to test if a given TCP host/port are available
+
+set -e
 
 cmdname=$(basename $0)
 
@@ -14,14 +16,13 @@ Usage:
     -p PORT | --port=PORT       TCP port under test
                                 Alternatively, you specify the host and port as host:port
     -s | --strict               Only execute subcommand if the test succeeds
-    -q | --quiet                Don't output any status messages
+    -q | --quiet                Don\'t output any status messages
     -t TIMEOUT | --timeout=TIMEOUT
                                 Timeout in seconds, zero for no timeout
     -- COMMAND ARGS             Execute command with args after the test finishes
 USAGE
     exit 1
 }
-
 wait_for()
 {
     if [[ $TIMEOUT -gt 0 ]]; then
@@ -43,33 +44,32 @@ wait_for()
     done
     return $result
 }
-
 wait_for_wrapper()
 {
     # In order to support SIGINT during timeout: http://unix.stackexchange.com/a/57692
     if [[ $QUIET -eq 1 ]]; then
-        timeout $TIMEOUT $0 --quiet --child --host=$HOST --port=$PORT --timeout=$TIMEOUT &
+        timeout -t $TIMEOUT $0 --quiet --child --host=$HOST --port=$PORT --timeout=$TIMEOUT &
     else
-        timeout $TIMEOUT $0 --child --host=$HOST --port=$PORT --timeout=$TIMEOUT &
+        timeout -t $TIMEOUT $0 --child --host=$HOST --port=$PORT --timeout=$TIMEOUT &
     fi
     PID=$!
     trap "kill -INT -$PID" INT
     wait $PID
     RESULT=$?
+    echo "RESULT: $RESULT"
     if [[ $RESULT -ne 0 ]]; then
+        echo "RESULT: $RESULT"
         echoerr "$cmdname: timeout occurred after waiting $TIMEOUT seconds for $HOST:$PORT"
     fi
     return $RESULT
 }
-
 # process arguments
 while [[ $# -gt 0 ]]
 do
     case "$1" in
         *:* )
-        hostport=(${1//:/ })
-        HOST=${hostport[0]}
-        PORT=${hostport[1]}
+        HOST=$(printf "%s\n" "$1"| cut -d : -f 1)
+        PORT=$(printf "%s\n" "$1"| cut -d : -f 2)
         shift 1
         ;;
         --child)
@@ -125,17 +125,14 @@ do
         ;;
     esac
 done
-
 if [[ "$HOST" == "" || "$PORT" == "" ]]; then
     echoerr "Error: you need to provide a host and port to test."
     usage
 fi
-
 TIMEOUT=${TIMEOUT:-15}
 STRICT=${STRICT:-0}
 CHILD=${CHILD:-0}
 QUIET=${QUIET:-0}
-
 if [[ $CHILD -gt 0 ]]; then
     wait_for
     RESULT=$?
@@ -149,7 +146,6 @@ else
         RESULT=$?
     fi
 fi
-
 if [[ $CLI != "" ]]; then
     if [[ $RESULT -ne 0 && $STRICT -eq 1 ]]; then
         echoerr "$cmdname: strict mode, refusing to execute subprocess"
